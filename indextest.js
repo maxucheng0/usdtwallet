@@ -13,7 +13,7 @@ log4js.configure({
   appenders: { 
 	normal: { 
 		type: 'file', 
-		filename: "/root/omniwallet/logs/file.log",
+		filename: "/root/omniwallet/logs/file_test.log",
 		maxLogSize: 1024*1024*1,
 		backups: 100		
 	} },
@@ -26,7 +26,7 @@ log4js.configure({
 
 const logger = log4js.getLogger('normal');
 
-const net = bitcoin.networks.bitcoin
+const net = bitcoin.networks.testnet
   // bitcoin.networks.testnet
   // bitcoin.networks.bitcoin
 const AesKey = "lianboxingxuelin";
@@ -310,7 +310,7 @@ function decryption(data, key) {
 
 module.exports = router;
 
-var server = app.listen(83, function () {   //监听端口
+var server = app.listen(8899, function () {   //监听端口
   var host = server.address().address
   var port = server.address().port
   console.log('Example app listening at http://%s:%s', host, port);
