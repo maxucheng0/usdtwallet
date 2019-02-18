@@ -33,7 +33,7 @@ const AesKey = "lianboxingxuelin";
 
 const API = net === bitcoin.networks.testnet
   ? `https://test-insight.swap.online/insight-api`
-  : `https://insight.bitpay.com/api`
+  : `http://47.52.197.198:3001/insight-api`
 
 const fetchUnspents = (address) =>
   request(`${API}/addr/${address}/utxo/`).then(JSON.parse)
