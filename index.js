@@ -98,7 +98,7 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   const simple_send = [
     "6f6d6e69", // omni
     "0000",     // version
-    "000000000001", // 31 for Tether
+    "00000000001f", // 31 for Tether
     ("0000000000000000"+amount.toString(16)).substr(-16)
   ].join('')
   const data = Buffer.from(simple_send, "hex")
