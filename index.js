@@ -200,7 +200,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 		var json = {};
 		json.msg = "私钥错误"
 		json.errcode = -2
-		json.msg = "私钥和地址不匹配"
+		json.errorinfo = "私钥和地址不匹配"
 		res.end(JSON.stringify(json))	
 		return			
 	}
