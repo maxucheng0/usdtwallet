@@ -13,7 +13,7 @@ log4js.configure({
   appenders: { 
 	normal: { 
 		type: 'file', 
-		filename: "/root/omniwallet/logs/file_test.log",
+		filename: "/root/omniwallet/logs/file.log",
 		maxLogSize: 1024*1024*1,
 		backups: 100		
 	} },
@@ -26,14 +26,14 @@ log4js.configure({
 
 const logger = log4js.getLogger('normal');
 
-const net = bitcoin.networks.testnet
+const net = bitcoin.networks.bitcoin
   // bitcoin.networks.testnet
   // bitcoin.networks.bitcoin
 const AesKey = "lianboxingxuelin";
 
 const API = net === bitcoin.networks.testnet
   ? `https://test-insight.swap.online/insight-api`
-  : `https://insight.bitpay.com/api`
+  : `http://47.52.197.198:3001/insight-api`
 
 const fetchUnspents = (address) =>
   request(`${API}/addr/${address}/utxo/`).then(JSON.parse)
@@ -139,6 +139,7 @@ app.post('/md5/wallet/usdt/sendto',jsonParser, function (req, res, next) {
 		var json = {};
 		json.msg = "金额非法"
 		json.errcode = -3
+		json.errorinfo = "金额非法:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
 	}
@@ -168,6 +169,7 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 		var json = {};
 		json.msg = "金额非法"
 		json.errcode = -3
+		json.errorinfo = "金额非法:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
 	}
@@ -179,20 +181,32 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 
 function sendto(res,privkey,fromaddress,toaddress,amount){
 	try{		
-		var alice = bitcoin.ECPair.fromWIF(privkey, net)		
+		var keyPair = bitcoin.ECPair.fromWIF(privkey, net)		
 	}catch(err){
 		logger.error('私钥格式有误:', err.message)
 		console.log((new Date()).toLocaleString(), "私钥格式有误",err.message); 
 		var json = {};
 		json.msg = "私钥格式有误"
 		json.errcode = -2
+		json.errorinfo = "私钥格式有误:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
 	}
 	
+    const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey })	
+	if (address != fromaddress){
+		logger.error("私钥和地址不匹配",privkey,fromaddress,address)
+		console.log((new Date()).toLocaleString(), "私钥和地址不匹配",privkey,fromaddress,address); 
+		var json = {};
+		json.msg = "私钥错误"
+		json.errcode = -2
+		res.end(JSON.stringify(json))	
+		return			
+	}
+	
 	try{
 		// Construct tx
-		const omni_tx = createSimpleSend(fetchUnspents, alice, fromaddress, toaddress, amount)		
+		const omni_tx = createSimpleSend(fetchUnspents, keyPair, fromaddress, toaddress, amount)		
 		omni_tx.then(tx => {
 			const txRaw = tx.buildIncomplete()
 			var txResult = broadcastTx(txRaw.toHex())
@@ -210,6 +224,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 				var json = {};				
 				json.errcode = -1
 				json.msg = "交易失败"
+				json.errorinfo = "发送tx请求失败:" + err.message
 				res.end(JSON.stringify(json))
 				return
 			});	
@@ -220,6 +235,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 			var json = {};			
 			json.errcode = -1
 			json.msg = "交易失败"
+			json.errorinfo = "构建交易失败:" + err.message
 			res.end(JSON.stringify(json))
 			return
 		});	
@@ -229,6 +245,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 		var json = {};
 		json.msg = "交易失败"
 		json.errcode = -1
+		json.errorinfo = "发生未知异常:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
 	}	
@@ -310,7 +327,7 @@ function decryption(data, key) {
 
 module.exports = router;
 
-var server = app.listen(8899, function () {   //监听端口
+var server = app.listen(8888, function () {   //监听端口
   var host = server.address().address
   var port = server.address().port
   console.log('Example app listening at http://%s:%s', host, port);
