@@ -88,7 +88,7 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   //判断未花费交易金额是否足够，不足抛出异常
   if (totalUnspent < feeValue + fundValue + fundValue) {
 	//console.log((new Date()).toLocaleString(),`Total less than fee: ${totalUnspent} < ${feeValue} + ${fundValue}`)
-    throw new Error(`Total less than fee: ${totalUnspent} < ${feeValue} + ${fundValue}`)
+    throw new Error(`BTC余额不足以支付手续费`)
   }  
   //计算剩余金额
   const skipValue     = totalUnspent - fundValue - feeValue	
@@ -231,11 +231,11 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 			});	
 		})
 		.catch((err) => {
-			logger.error('构建simplesend失败:', err.message)
+			logger.error('构建交易失败:', err.message)
 			console.log((new Date()).toLocaleString(),'构建simplesend失败', err.message);     //网络请求失败返回的数据  	
 			var json = {};			
 			json.errcode = -1
-			json.msg = "交易失败"
+			json.msg = err.message
 			json.errorinfo = "构建交易失败:" + err.message
 			res.end(JSON.stringify(json))
 			return
