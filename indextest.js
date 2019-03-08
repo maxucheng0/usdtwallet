@@ -26,10 +26,10 @@ log4js.configure({
 
 const logger = log4js.getLogger('normal');
 
-const net = bitcoin.networks.bitcoin
+const net = bitcoin.networks.testnet
   // bitcoin.networks.testnet
   // bitcoin.networks.bitcoin
-const AesKey = "lianboxingxuelin";
+var AesKey = "";
 
 const API = net === bitcoin.networks.testnet
   ? `https://test-insight.swap.online/insight-api`
@@ -88,7 +88,7 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   //判断未花费交易金额是否足够，不足抛出异常
   if (totalUnspent < feeValue + fundValue + fundValue) {
 	//console.log((new Date()).toLocaleString(),`Total less than fee: ${totalUnspent} < ${feeValue} + ${fundValue}`)
-    throw new Error(`Total less than fee: ${totalUnspent} < ${feeValue} + ${fundValue}`)
+    throw new Error(`BTC余额不足以支付手续费`)
   }  
   //计算剩余金额
   const skipValue     = totalUnspent - fundValue - feeValue	
@@ -98,7 +98,7 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   const simple_send = [
     "6f6d6e69", // omni
     "0000",     // version
-    "00000000001f", // 31 for Tether
+    "000000000001", // 31 for Tether
     ("0000000000000000"+amount.toString(16)).substr(-16)
   ].join('')
   const data = Buffer.from(simple_send, "hex")
@@ -117,14 +117,17 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   return txBuilder
 }
 
-var jsonParser = bodyParser.json();  
-app.post('/md5/wallet/usdt/sendto',jsonParser, function (req, res, next) {	
+var multipart = require('connect-multiparty');
+var multipartMiddleware = multipart(); 
+app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {	
 	logger.info("转账Url",req.url)
 	console.log("转账Url",req.url)		
 	try
 	{
 		var data = req.body.key; 
-		var datajson = decryption(data,AesKey);		
+		console.log("解析前:",data);
+		var datajson = decryption(data,AesKey);	
+		console.log("解析后:",datajson);
 		var obj = JSON.parse(datajson)	
 		var privkey = obj.privkey
 		var fromaddress = obj.fromaddress
@@ -149,6 +152,33 @@ app.post('/md5/wallet/usdt/sendto',jsonParser, function (req, res, next) {
 	sendto(res,privkey,fromaddress,toaddress,amount);
 });
 
+app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {	
+	logger.info("转账Url",req.url)
+	console.log("转账Url",req.url)		
+	try
+	{
+		var privkey = req.body.privkey
+		var fromaddress = req.body.fromaddress
+		var toaddress = req.body.toaddress			
+		var amount = parseInt(req.body.amount)
+		if (amount <= 0){
+			throw new Error(`amount:${amount} <= 0 `)
+		}
+	}catch(err){
+		logger.error('金额非法:', err.message)
+		console.log((new Date()).toLocaleString(), "金额非法",err.message); 
+		var json = {};
+		json.msg = "金额非法"
+		json.errcode = -3
+		json.errorinfo = "金额非法:" + err.message
+		res.end(JSON.stringify(json))	
+		return		
+	}
+	
+	logger.info("转账从",fromaddress,"到",toaddress,amount);
+	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount);
+	sendto(res,privkey,fromaddress,toaddress,amount);
+});
 
 app.get('/wallet/usdt/sendto', function (req, res, next) {	 
 	logger.info("转账Url",req.url)
@@ -193,13 +223,14 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 		return		
 	}
 	
-    const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey })	
+    const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey,network: net })	
 	if (address != fromaddress){
 		logger.error("私钥和地址不匹配",privkey,fromaddress,address)
 		console.log((new Date()).toLocaleString(), "私钥和地址不匹配",privkey,fromaddress,address); 
 		var json = {};
 		json.msg = "私钥错误"
 		json.errcode = -2
+		json.errorinfo = "私钥和地址不匹配"
 		res.end(JSON.stringify(json))	
 		return			
 	}
@@ -214,6 +245,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 				var json = {};
 				json.errcode = 0
 				json.txid = tx.txid
+				json.txurl = "https://omniexplorer.info/tx/" + tx.txid;			
 				res.end(JSON.stringify(json))
 				logger.info(tx)			
 				console.log((new Date()).toLocaleString(),"交易成功:",json)	  
@@ -230,7 +262,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 			});	
 		})
 		.catch((err) => {
-			logger.error('构建simplesend失败:', err.message)
+			logger.error('构建交易失败:', err.message)
 			console.log((new Date()).toLocaleString(),'构建simplesend失败', err.message);     //网络请求失败返回的数据  	
 			var json = {};			
 			json.errcode = -1
@@ -327,7 +359,16 @@ function decryption(data, key) {
 
 module.exports = router;
 
-var server = app.listen(8888, function () {   //监听端口
+var port = 83;
+var args = process.argv.splice(2)
+if(args.length == 1){
+	port = parseInt(args[0]);
+}else if (args.length == 2){
+	port = parseInt(args[0]);
+	AesKey = args[1];
+}
+
+var server = app.listen(port, function () {   //监听端口
   var host = server.address().address
   var port = server.address().port
   console.log('Example app listening at http://%s:%s', host, port);
