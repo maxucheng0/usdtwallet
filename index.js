@@ -34,6 +34,7 @@ var AesKey = "";
 const API = net === bitcoin.networks.testnet
   ? `https://test-insight.swap.online/insight-api`
   : `http://47.52.197.198:3001/insight-api`
+  //: `https://insight.bitpay.com/api`
 
 const fetchUnspents = (address) =>
   request(`${API}/addr/${address}/utxo/`).then(JSON.parse)
@@ -122,10 +123,21 @@ var multipartMiddleware = multipart();
 app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {	
 	logger.info("转账Url",req.url)
 	console.log("转账Url",req.url)		
-	try
-	{
+	try{
 		var data = req.body.key; 
-		var datajson = decryption(data,AesKey);		
+		var datajson = decryption(data,AesKey);			
+	}catch(err){
+		logger.error('解密失败:', err.message)
+		console.log((new Date()).toLocaleString(), "解密失败",err.message); 
+		var json = {};
+		json.msg = "格式错误"
+		json.errcode = -4
+		json.errorinfo = "格式错误:" + err.message
+		res.end(JSON.stringify(json))	
+		return			
+	}
+	try
+	{	
 		var obj = JSON.parse(datajson)	
 		var privkey = obj.privkey
 		var fromaddress = obj.fromaddress
@@ -144,9 +156,29 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 		res.end(JSON.stringify(json))	
 		return		
 	}
-	
+		
 	logger.info("转账从",fromaddress,"到",toaddress,amount);
 	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount);
+	try {
+	  bitcoin.address.fromBase58Check(fromaddress)
+	} catch (e) {
+		console.log("转出地址非法");
+		var json = {};
+		json.msg = "转出地址非法"
+		json.errcode = -5
+		res.end(JSON.stringify(json))
+		return			
+	}
+	try {
+	  bitcoin.address.fromBase58Check(toaddress)
+	} catch (e) {
+		console.log("转入地址非法");
+		var json = {};
+		json.msg = "转入地址非法"
+		json.errcode = -6
+		res.end(JSON.stringify(json))
+		return			
+	}	
 	sendto(res,privkey,fromaddress,toaddress,amount);
 });
 
@@ -161,7 +193,7 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 		var amount = parseInt(req.body.amount)
 		if (amount <= 0){
 			throw new Error(`amount:${amount} <= 0 `)
-		}
+		}		
 	}catch(err){
 		logger.error('金额非法:', err.message)
 		console.log((new Date()).toLocaleString(), "金额非法",err.message); 
@@ -172,9 +204,29 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 		res.end(JSON.stringify(json))	
 		return		
 	}
-	
+		
 	logger.info("转账从",fromaddress,"到",toaddress,amount);
 	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount);
+	try {
+	  bitcoin.address.fromBase58Check(fromaddress)
+	} catch (e) {
+		console.log("转出地址非法");
+		var json = {};
+		json.msg = "转出地址非法"
+		json.errcode = -5
+		res.end(JSON.stringify(json))
+		return			
+	}
+	try {
+	  bitcoin.address.fromBase58Check(toaddress)
+	} catch (e) {
+		console.log("转入地址非法");
+		var json = {};
+		json.msg = "转入地址非法"
+		json.errcode = -6
+		res.end(JSON.stringify(json))
+		return			
+	}	
 	sendto(res,privkey,fromaddress,toaddress,amount);
 });
 
@@ -204,6 +256,26 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 	
 	logger.info("转账从",fromaddress,"到",toaddress,amount);
 	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount);
+	try {
+	  bitcoin.address.fromBase58Check(fromaddress)
+	} catch (e) {
+		console.log("转出地址非法");
+		var json = {};
+		json.msg = "转出地址非法"
+		json.errcode = -5
+		res.end(JSON.stringify(json))
+		return			
+	}
+	try {
+	  bitcoin.address.fromBase58Check(toaddress)
+	} catch (e) {
+		console.log("转入地址非法");
+		var json = {};
+		json.msg = "转入地址非法"
+		json.errcode = -6
+		res.end(JSON.stringify(json))
+		return			
+	}		
 	sendto(res,privkey,fromaddress,toaddress,amount);
 })
 
@@ -241,11 +313,10 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 			var txResult = broadcastTx(txRaw.toHex())
 			txResult.then(tx => {	 
 				var json = {};
-				json.errcode = 0;
-				json.txid = tx.txid;
-				json.txurl = "https://omniexplorer.info/tx/" + tx.txid;
-				res.end(JSON.stringify(json));
-				logger.info(tx);
+				json.errcode = 0
+				json.txid = tx.txid
+				res.end(JSON.stringify(json))
+				logger.info(tx)			
 				console.log((new Date()).toLocaleString(),"交易成功:",json)	  
 			})
 			.catch( (err) => {

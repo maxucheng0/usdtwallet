@@ -114,6 +114,54 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   txBuilder.__tx.ins.forEach((input, index) => {
     txBuilder.sign(index, alice_pair)
   })
+  console.log(txBuilder.build().toHex());
+  return txBuilder
+}
+
+//生成交易
+const createSimpleSend2 = async (fetchUnspents, alice_pair, send_address, recipient_address, amount = 10) => {
+  //构建txBuilder
+  const txBuilder = new bitcoin.TransactionBuilder(net)
+  //获取未花费的交易
+  const unspents = await fetchUnspents(send_address)  
+  //手续费  satoshis/byte
+  var fee = 20
+  var feeValue      = 0
+  //var sendamount = 1000000
+  //获取inputs
+  var totalUnspent = 0
+  const outputsNum = 2
+  //遍历未花费交易列表，生成交易输入项
+  console.log((new Date()).toLocaleString(),"未花费记录条数：", unspents.length)
+  for (var i=0; i< unspents.length; i++){
+	totalUnspent = totalUnspent +  unspents[i].satoshis
+	txBuilder.addInput(unspents[i].txid,  unspents[i].vout, 0xfffffffe)
+	console.log("tx:",unspents[i].txid,"satoshis:",unspents[i].satoshis,"confirmations:", unspents[i].confirmations)
+	size = (i+1) * 148 + outputsNum * 34 + 10
+	feeValue = (size) * fee //计算手续费
+	console.log(size,feeValue);
+	//如果当前未花费交易金额已经大于 最低交易*2+手续费，跳出循环 
+	//减去最低交易是因为找零余额也必须大于最低交易费 不然会被比特币网络限制
+	if (totalUnspent > feeValue + amount + 546){
+		break
+	}
+  }  
+  //判断未花费交易金额是否足够，不足抛出异常
+  if (totalUnspent < feeValue + amount + 546) {
+	//console.log((new Date()).toLocaleString(),`Total less than fee: ${totalUnspent} < ${feeValue} + ${fundValue}`)
+    throw new Error(`BTC余额不足以支付手续费`)
+  }  
+  //计算剩余金额
+  const skipValue     = totalUnspent - amount - feeValue	  
+  console.log("totalUnspent:"+totalUnspent.toString(10)+" feeValue:"+feeValue.toString(10)+" sendamount:"+amount.toString(10)+" skipValue:"+skipValue.toString(10))
+
+  txBuilder.addOutput(recipient_address, amount)
+  txBuilder.addOutput(send_address, skipValue)
+  //签名输入项
+  txBuilder.__tx.ins.forEach((input, index) => {
+    txBuilder.sign(index, alice_pair)
+  })
+  console.log(txBuilder.build().toHex());
   return txBuilder
 }
 
@@ -237,9 +285,16 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 	
 	try{
 		// Construct tx
-		const omni_tx = createSimpleSend(fetchUnspents, keyPair, fromaddress, toaddress, amount)		
+		const omni_tx = createSimpleSend2(fetchUnspents, keyPair, fromaddress, toaddress, amount)		
 		omni_tx.then(tx => {
-			const txRaw = tx.buildIncomplete()
+			const txRaw = tx.buildIncomplete()			
+			console.log((new Date()).toLocaleString(),"交易HEX:",txRaw.toHex())	 
+			var json = {};
+			json.errcode = 0
+			json.txHex = txRaw.toHex()		
+			res.end(JSON.stringify(json))			
+			return
+			
 			var txResult = broadcastTx(txRaw.toHex())
 			txResult.then(tx => {	 
 				var json = {};
@@ -289,7 +344,17 @@ app.get('/wallet/usdt/balance', function (req, res, next){
 	var arg = url.parse(req.url, true).query; 
 	var address = arg.address
 	logger.info("查询余额,地址:",address)
-	console.log((new Date()).toLocaleString(),"查询余额,地址:",address)
+	console.log((new Date()).toLocaleString(),"查询余额,地址:",address);
+    try {
+      bitcoin.address.fromBase58Check(address)
+    } catch (e) {
+		console.log("地址非法");
+		var json = {};
+		json.msg = "地址非法"
+		json.errcode = -1
+		res.end(JSON.stringify(json))
+		return			
+	}		
 	try{
 		var balanceResult = getBalance(address)
 		balanceResult.then(balance =>{
@@ -356,6 +421,38 @@ function decryption(data, key) {
 
     return cipherChunks.join('');
 }
+
+app.get('/wallet/usdt/test', function (req, res, next){
+  //构建txBuilder
+  const txBuilder = new bitcoin.TransactionBuilder(net)
+  var fromaddress = "mmXsZBS9S6ERo6g6TE6FTA8cpFZBRh68vB"
+  var toaddress = "mhmZB1iutRqAAbeGMpeYFUMA5WMEhAcGCL"
+  var balance = 4957664 // 余额
+  var fee = 100000 // 交易费
+  var amount = 1000000
+
+
+  txBuilder.addInput("c6bd8e164770b857fc3cfd11bc369c9828409494dce9a36619912804ecb83d1a",  0, 0xfffffffe)
+
+  //计算剩余金额
+  const skipValue     = balance - fee - amount// 余额-交易费就是剩下再给我的  
+  console.log("balance:"+balance.toString(10)+" feeValue:"+fee.toString(10)+" sendamount:"+amount.toString(10)+" skipValue:"+skipValue.toString(10))
+
+  txBuilder.addOutput(toaddress, amount)
+  txBuilder.addOutput(fromaddress, skipValue)
+  //签名输入项
+  privkey = "cUSQejbBoBuRGBUgCH3qZieuKsmcGCats3zSzb4H62y6QS4cw7tS" // 私钥
+  var keyPair = bitcoin.ECPair.fromWIF(privkey, net)
+  txBuilder.__tx.ins.forEach((input, index) => {
+    txBuilder.sign(index, keyPair)
+  })
+  console.log(txBuilder.build().toHex());
+	var json = {};
+	json.txHex = txBuilder.build().toHex()
+	json.errcode = 0
+	res.end(JSON.stringify(json))
+	return;
+})
 
 module.exports = router;
 
