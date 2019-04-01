@@ -121,8 +121,8 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
 var multipart = require('connect-multiparty');
 var multipartMiddleware = multipart();  
 app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {	
-	logger.info("转账Url",req.url)
-	console.log("转账Url",req.url)		
+	logger.info("客户端ip",get_client_ip(req),"转账Url",req.url)
+	console.log("客户端ip",get_client_ip(req),"转账Url",req.url)		
 	try{
 		var data = req.body.key; 
 		var datajson = decryption(data,AesKey);			
@@ -182,9 +182,9 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 	sendto(res,privkey,fromaddress,toaddress,amount);
 });
 
-app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {	
-	logger.info("转账Url",req.url)
-	console.log("转账Url",req.url)		
+app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {		
+	logger.info("客户端ip",get_client_ip(req),"转账Url",req.url)
+	console.log("客户端ip",get_client_ip(req),"转账Url",req.url)		
 	try
 	{
 		var privkey = req.body.privkey
@@ -231,8 +231,8 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 });
 
 app.get('/wallet/usdt/sendto', function (req, res, next) {	 
-	logger.info("转账Url",req.url)
-	console.log("转账Url",req.url)	
+	logger.info("客户端ip",get_client_ip(req),"转账Url",req.url)
+	console.log("客户端ip",get_client_ip(req),"转账Url",req.url)	
 	try
 	{
 		var arg = url.parse(req.url, true).query; 
@@ -353,8 +353,8 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 }
 
 app.get('/wallet/usdt/balance', function (req, res, next){
-	logger.info("查询余额Url",req.url)
-	console.log("查询余额Url",req.url)		
+	logger.info("客户端ip",get_client_ip(req),"查询余额Url",req.url)
+	console.log("客户端ip",get_client_ip(req),"查询余额Url",req.url)		
 	var arg = url.parse(req.url, true).query; 
 	var address = arg.address
 	logger.info("查询余额,地址:",address)
@@ -425,6 +425,19 @@ function decryption(data, key) {
 
     return cipherChunks.join('');
 }
+
+//获取url请求客户端ip
+var get_client_ip = function(req) {
+    var ip = req.headers['x-forwarded-for'] ||
+        req.ip ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        req.connection.socket.remoteAddress || '';
+    if(ip.split(',').length>0){
+        ip = ip.split(',')[0]
+    }
+    return ip;
+};
 
 module.exports = router;
 
