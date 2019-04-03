@@ -36,11 +36,14 @@ const API = net === bitcoin.networks.testnet
   : `http://47.52.197.198:3001/insight-api`
   //: `https://insight.bitpay.com/api`
 
+//手续费  固定5000聪
+const feeDefault      = 5000
+  
 const fetchUnspents = (address) =>
   request(`${API}/addr/${address}/utxo/`).then(JSON.parse)
 
 const broadcastTx = (txRaw) =>
-  request.post(`${API}/tx/send`, {
+  request.post(`https://insight.bitpay.com/api/tx/send`, {
     json: true,
     body: {
       rawtx: txRaw,
@@ -57,15 +60,13 @@ const getBalance = (address) =>
   })  
   
 //生成交易
-const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipient_address, amount = 10) => {
+const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipient_address, amount, feeValue) => {
   //构建txBuilder
   const txBuilder = new bitcoin.TransactionBuilder(net)
   //获取未花费的交易
   const unspents = await fetchUnspents(send_address)  
   //最低交易546聪
   const fundValue     = 546 // dust
-  //手续费  固定5000聪
-  var feeValue      = 5000
   //获取inputs
   var totalUnspent = 0
   const outputsNum = 3
@@ -142,7 +143,7 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 		var privkey = obj.privkey
 		var fromaddress = obj.fromaddress
 		var toaddress = obj.toaddress			
-		var amount = parseInt(obj.amount) 	
+		var amount = parseInt(obj.amount) 		
 		if (amount <= 0){
 			throw new Error(`amount:${amount} <= 0 `)
 		}
@@ -158,7 +159,7 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 	}
 		
 	logger.info("转账从",fromaddress,"到",toaddress,amount);
-	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount);
+	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount,fee);
 	try {
 	  bitcoin.address.fromBase58Check(fromaddress)
 	} catch (e) {
@@ -179,7 +180,7 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 		res.end(JSON.stringify(json))
 		return			
 	}	
-	sendto(res,privkey,fromaddress,toaddress,amount);
+	sendto(res,privkey,fromaddress,toaddress,amount,fee);
 });
 
 app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {		
@@ -193,6 +194,10 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 		var amount = parseInt(req.body.amount)
 		if (amount <= 0){
 			throw new Error(`amount:${amount} <= 0 `)
+		}
+		var fee = req.body.fee
+		if (fee == "undefined"){
+			fee = feeDefault
 		}		
 	}catch(err){
 		logger.error('金额非法:', err.message)
@@ -206,7 +211,7 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 	}
 		
 	logger.info("转账从",fromaddress,"到",toaddress,amount);
-	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount);
+	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount,fee);
 	try {
 	  bitcoin.address.fromBase58Check(fromaddress)
 	} catch (e) {
@@ -227,7 +232,7 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 		res.end(JSON.stringify(json))
 		return			
 	}	
-	sendto(res,privkey,fromaddress,toaddress,amount);
+	sendto(res,privkey,fromaddress,toaddress,amount,fee);
 });
 
 app.get('/wallet/usdt/sendto', function (req, res, next) {	 
@@ -243,6 +248,7 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 		if (amount <= 0){
 			throw new Error(`amount:${amount} <= 0 `)
 		}
+		var fee = arg.fee
 	}catch(err){
 		logger.error('金额非法:', err.message)
 		console.log((new Date()).toLocaleString(), "金额非法",err.message); 
@@ -255,7 +261,7 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 	}
 	
 	logger.info("转账从",fromaddress,"到",toaddress,amount);
-	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount);
+	console.log((new Date()).toLocaleString(),"转账从",fromaddress,"到",toaddress,amount,fee);
 	try {
 	  bitcoin.address.fromBase58Check(fromaddress)
 	} catch (e) {
@@ -276,10 +282,10 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 		res.end(JSON.stringify(json))
 		return			
 	}		
-	sendto(res,privkey,fromaddress,toaddress,amount);
+	sendto(res,privkey,fromaddress,toaddress,amount,fee);
 })
 
-function sendto(res,privkey,fromaddress,toaddress,amount){
+function sendto(res,privkey,fromaddress,toaddress,amount,fee){
 	try{		
 		var keyPair = bitcoin.ECPair.fromWIF(privkey, net)		
 	}catch(err){
@@ -304,10 +310,20 @@ function sendto(res,privkey,fromaddress,toaddress,amount){
 		res.end(JSON.stringify(json))	
 		return			
 	}
-	
+	var feeValue = feeDefault
+	if (fee != undefined){
+		try{
+			feeValue = parseInt(fee) 	
+			if (feeValue <= 5000 || feeValue >= 1000000){
+				feeValue = feeDefault
+			}	
+		}catch(err){
+			feeValue = feeDefault
+		}		
+	}	
 	try{
-		// Construct tx
-		const omni_tx = createSimpleSend(fetchUnspents, keyPair, fromaddress, toaddress, amount)		
+		// Construct tx	
+		const omni_tx = createSimpleSend(fetchUnspents, keyPair, fromaddress, toaddress, amount, feeValue)		
 		omni_tx.then(tx => {
 			const txRaw = tx.buildIncomplete()
 			var txResult = broadcastTx(txRaw.toHex())
