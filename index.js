@@ -43,7 +43,7 @@ const fetchUnspents = (address) =>
   request(`${API}/addr/${address}/utxo/`).then(JSON.parse)
 
 const broadcastTx = (txRaw) =>
-  request.post(`https://insight.bitpay.com/api/tx/send`, {
+  request.post(`${API}/tx/send`, {
     json: true,
     body: {
       rawtx: txRaw,
