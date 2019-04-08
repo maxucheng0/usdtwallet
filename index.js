@@ -326,6 +326,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount,fee){
 		const omni_tx = createSimpleSend(fetchUnspents, keyPair, fromaddress, toaddress, amount, feeValue)		
 		omni_tx.then(tx => {
 			const txRaw = tx.buildIncomplete()
+			logger.info("txRaw:",txRaw.toHex())
 			var txResult = broadcastTx(txRaw.toHex())
 			txResult.then(tx => {	 
 				var json = {};
