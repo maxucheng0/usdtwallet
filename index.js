@@ -133,6 +133,7 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 		var json = {};
 		json.msg = "格式错误"
 		json.errcode = -4
+		json.code = -4
 		json.errorinfo = "格式错误:" + err.message
 		res.end(JSON.stringify(json))	
 		return			
@@ -153,6 +154,7 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 		var json = {};
 		json.msg = "金额非法"
 		json.errcode = -3
+		json.code = -3
 		json.errorinfo = "金额非法:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
@@ -167,6 +169,7 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 		var json = {};
 		json.msg = "转出地址非法"
 		json.errcode = -5
+		json.code = -5
 		res.end(JSON.stringify(json))
 		return			
 	}
@@ -177,6 +180,7 @@ app.post('/v2/wallet/usdt/sendto',multipartMiddleware, function (req, res, next)
 		var json = {};
 		json.msg = "转入地址非法"
 		json.errcode = -6
+		json.code = -6
 		res.end(JSON.stringify(json))
 		return			
 	}	
@@ -205,6 +209,7 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 		var json = {};
 		json.msg = "金额非法"
 		json.errcode = -3
+		json.code = -3
 		json.errorinfo = "金额非法:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
@@ -219,6 +224,7 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 		var json = {};
 		json.msg = "转出地址非法"
 		json.errcode = -5
+		json.code = -5
 		res.end(JSON.stringify(json))
 		return			
 	}
@@ -229,6 +235,7 @@ app.post('/wallet/usdt/sendto',multipartMiddleware, function (req, res, next) {
 		var json = {};
 		json.msg = "转入地址非法"
 		json.errcode = -6
+		json.code = -6
 		res.end(JSON.stringify(json))
 		return			
 	}	
@@ -255,6 +262,7 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 		var json = {};
 		json.msg = "金额非法"
 		json.errcode = -3
+		json.code = -3
 		json.errorinfo = "金额非法:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
@@ -269,6 +277,7 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 		var json = {};
 		json.msg = "转出地址非法"
 		json.errcode = -5
+		json.code = -5
 		res.end(JSON.stringify(json))
 		return			
 	}
@@ -279,6 +288,7 @@ app.get('/wallet/usdt/sendto', function (req, res, next) {
 		var json = {};
 		json.msg = "转入地址非法"
 		json.errcode = -6
+		json.code = -6
 		res.end(JSON.stringify(json))
 		return			
 	}		
@@ -294,6 +304,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount,fee){
 		var json = {};
 		json.msg = "私钥格式有误"
 		json.errcode = -2
+		json.code = -2
 		json.errorinfo = "私钥格式有误:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
@@ -306,6 +317,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount,fee){
 		var json = {};
 		json.msg = "私钥错误"
 		json.errcode = -2
+		json.code = -2
 		json.errorinfo = "私钥和地址不匹配"
 		res.end(JSON.stringify(json))	
 		return			
@@ -331,7 +343,10 @@ function sendto(res,privkey,fromaddress,toaddress,amount,fee){
 			txResult.then(tx => {	 
 				var json = {};
 				json.errcode = 0
+				json.code = 0				
 				json.txid = tx.txid
+				json.data = {}
+				json.data.txid = tx.txid
 				res.end(JSON.stringify(json))
 				logger.info(tx)			
 				console.log((new Date()).toLocaleString(),"交易成功:",json)	  
@@ -341,6 +356,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount,fee){
 				console.log((new Date()).toLocaleString(), "发送tx请求失败",err.message);     //网络请求失败返回的数据  
 				var json = {};				
 				json.errcode = -1
+				json.code = -1
 				json.msg = "交易失败"
 				json.errorinfo = "发送tx请求失败:" + err.message
 				res.end(JSON.stringify(json))
@@ -352,6 +368,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount,fee){
 			console.log((new Date()).toLocaleString(),'构建simplesend失败', err.message);     //网络请求失败返回的数据  	
 			var json = {};			
 			json.errcode = -1
+			json.code = -1
 			json.msg = "交易失败"
 			json.errorinfo = "构建交易失败:" + err.message
 			res.end(JSON.stringify(json))
@@ -363,6 +380,7 @@ function sendto(res,privkey,fromaddress,toaddress,amount,fee){
 		var json = {};
 		json.msg = "交易失败"
 		json.errcode = -1
+		json.code = -1
 		json.errorinfo = "发生未知异常:" + err.message
 		res.end(JSON.stringify(json))	
 		return		
@@ -386,6 +404,9 @@ app.get('/wallet/usdt/balance', function (req, res, next){
 					var json = {};
 					json.amount = parseInt(r.balance[i].value)
 					json.errcode = 0
+					json.code = 0
+					json.data = {}
+					json.data.amount = parseInt(r.balance[i].value)
 					res.end(JSON.stringify(json))
 					console.log((new Date()).toLocaleString(),"余额:",json)
 					return;
@@ -394,12 +415,14 @@ app.get('/wallet/usdt/balance', function (req, res, next){
 			var json = {};
 			json.msg = "没有查询到记录"
 			json.errcode = -1
+			json.code = -1
 			res.end(JSON.stringify(json))
 		}).catch((err) => {
 			logger.error('获取余额失败:', err.message)
 			console.log((new Date()).toLocaleString(),"获取余额失败",err.message);     //网络请求失败返回的数据  
 			var json = {};
 			json.errcode = -1
+			json.code = -1
 			json.msg = "获取余额失败"
 			res.end(JSON.stringify(json))
 		});
@@ -409,6 +432,7 @@ app.get('/wallet/usdt/balance', function (req, res, next){
 		var json = {};
 		json.msg = "获取余额异常"
 		json.errcode = -1
+		json.code = -1
 		res.end(JSON.stringify(json))			 
 	}			
 })
