@@ -1,0 +1,19 @@
+{
+  "name": "omniwallet",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bitcoinjs-lib": "^5.0.3",
+    "connect-multiparty": "^2.2.0",
+    "express": "^4.16.4",
+    "log4js": "^4.1.0",
+    "request": "^2.88.0",
+    "request-promise-native": "^1.0.7"
+  }
+}
