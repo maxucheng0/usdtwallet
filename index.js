@@ -113,7 +113,7 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   txBuilder.addOutput(omniOutput, 0)
   txBuilder.addOutput(send_address, skipValue)
   //签名输入项
-  txBuilder.__tx.ins.forEach((input, index) => {
+  txBuilder.__TX.ins.forEach((input, index) => {
     txBuilder.sign(index, alice_pair)
   })
   return txBuilder
