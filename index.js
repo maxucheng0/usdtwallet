@@ -6,7 +6,7 @@ var url = require('url');
 var router = express.Router();
 var app = express();
 
-//app.use(bodyParser.urlencoded({extended: true})) 
+app.use(bodyParser.urlencoded({ extended: false })); 
 
 const log4js = require('log4js');
 log4js.configure({
