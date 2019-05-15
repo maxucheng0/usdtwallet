@@ -73,22 +73,22 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   //遍历未花费交易列表，生成交易输入项
   console.log((new Date()).toLocaleString(),"未花费记录条数：", unspents.length)
   for (var i=0; i< unspents.length; i++){
-	//if (unspents[i].confirmations < 6) {
-	//	console.log("tx: ",unspents[i].txid,"confirmations: ", unspents[i].confirmations)
-	//	continue
-	//}
+	if (unspents[i].confirmations < 1) {
+		console.log("tx: ",unspents[i].txid,"confirmations: ", unspents[i].confirmations)
+		continue
+	}
 	totalUnspent = totalUnspent +  unspents[i].satoshis
 	txBuilder.addInput(unspents[i].txid,  unspents[i].vout, 0xfffffffe)
 	console.log("tx:",unspents[i].txid,"satoshis:",unspents[i].satoshis,"confirmations:", unspents[i].confirmations)
 	//feeValue = (i+1) * 180 + outputsNum * 34 + 10 + 40 //暂时没有实时计算手续费，固定5000聪
 	//如果当前未花费交易金额已经大于 最低交易*2+手续费，跳出循环 
-	//减去两次最低交易是因为找零余额也必须大于最低交易费 不然会被比特币网络限制
-	if (totalUnspent > feeValue + fundValue + fundValue){
+	//减去两次最低交易是因为找零余额也必须大于最低交易费或者正好总金额=手续费+最低交易金额 不然会被比特币网络限制
+	if ((totalUnspent > feeValue + fundValue + fundValue) || (totalUnspent = feeValue + fundValue)){
 		break
 	}
   }  
   //判断未花费交易金额是否足够，不足抛出异常
-  if (totalUnspent < feeValue + fundValue + fundValue) {
+  if ((totalUnspent < feeValue + fundValue + fundValue) && (totalUnspent != feeValue + fundValue)){
 	//console.log((new Date()).toLocaleString(),`Total less than fee: ${totalUnspent} < ${feeValue} + ${fundValue}`)
     throw new Error(`BTC余额不足以支付手续费`)
   }  
@@ -111,7 +111,10 @@ const createSimpleSend = async (fetchUnspents, alice_pair, send_address, recipie
   //添加交易输出项
   txBuilder.addOutput(recipient_address, fundValue) // should be first!
   txBuilder.addOutput(omniOutput, 0)
-  txBuilder.addOutput(send_address, skipValue)
+  //如果找零大于最低手续费，增加找零输出
+  if(skipValue >= fundValue){
+	txBuilder.addOutput(send_address, skipValue);
+  }
   //签名输入项
   txBuilder.__TX.ins.forEach((input, index) => {
     txBuilder.sign(index, alice_pair)
